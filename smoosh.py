@@ -1,7 +1,8 @@
 #!/lib/bin/python
 
 import sys
-import re
+import argparse
+from argparse import RawTextHelpFormatter
 
 ABB = ['etc', 'mr', 'mrs', 'ms', 'dr', 'sr', 'jr', 'gen', 'rep', 'sen', 'st', 'al', 'eg', 'ie', 'in', 'phd', 'md', 'ba', 'dds', 'ma', 'mba', 'us', 'usa']
 
@@ -10,7 +11,8 @@ def extract_words(filename):
   text_ = f.read()
   text = text_.replace('\n', ' ')
   f.close()
-
+  
+  filesize = len(text)
   words = text.split()
   cleaned_words = clean_text(words)[::-1]
 
@@ -48,7 +50,7 @@ def extract_words(filename):
       # !EOS
       str_buffer += ch
 
-  return (sentences, sorted(count_words(cleaned_words).items(), key=custom_sort))
+  return (filesize, sentences, sorted(count_words(cleaned_words).items(), key=custom_sort))
 
 def isAbbreviation(text):
   search = text[::-1]
@@ -121,31 +123,87 @@ def assign_sentence_scores(sentences, word_scores):
 
   return scores
       
+def parse():
+  parser = argparse.ArgumentParser(description='\tsmoosh \n\t/smooSH/ (verb) to squash, crush, or flatten\n\n\tSummarizes a text file', formatter_class=RawTextHelpFormatter)
+
+  parser.add_argument('-n', '--number-of-sentences', type=int, help='the number of sentences that will be used to describe the text (default is 7)', required=False)
+  parser.add_argument('-f', '--file', help='if included, output will be written to \'output.txt\'', action='store_true')
+  parser.add_argument('-o', '--omit-metrics', help='if included, metric summary will be ommitted', action='store_true')
+  parser.add_argument('filename', type=str, help='the name of the file to be summarized (as a .txt file)')
+
+  args = parser.parse_args()
+  if args.number_of_sentences:
+    if args.number_of_sentences < 5:
+      print 'WARNING: defaulting to minimum number of sentences, which is 5...'
+      num_of_sentences = 5
+    elif args.number_of_sentences > 10:
+      print 'WARNING: defaulting to maximum number of sentences, which is 10...'
+      num_of_sentences = 10
+    else:
+      num_of_sentences = args.number_of_sentences
+  else:
+    num_of_sentences = 7
+
+  if args.file:
+    write_to_file = True
+  else:
+    write_to_file = False
+
+  if args.omit_metrics:
+    omit_metrics = True
+  else:
+    omit_metrics = False
+
+  if args.filename:
+    filename = args.filename
+  else:
+    print 'ERROR: no filename provided\nUse smoosh.py -h for help'
+    sys.exit(0)
+
+  return (num_of_sentences, write_to_file, omit_metrics, filename)
 
 def main():
-  if len(sys.argv) != 2:
-    print 'usage: python smmry.py filename.txt'
-    sys.exit(1)
+  # grab + parse cmd line arguments
+  (num_of_sentences, write_to_file, omit_metrics, filename) = parse()
 
-  num_of_sentences = 7
-
-  (sentences, word_list) = extract_words(sys.argv[1])
-  total_word_count = len(word_list)
+  # read from file and score sentences
+  (filesize, sentences, word_list) = extract_words(filename)
   word_scores = assign_word_scores(word_list)
   sentence_scores = assign_sentence_scores(sentences, word_scores)
 
+  # sort top sentences
   final_scores = sorted(sentence_scores.items(), key=custom_sort)[::-1]
   top_sentence_ids = []
   for index in range(num_of_sentences):
     top_sentence_ids.append(final_scores[index][0])
   top_sentence_ids.sort()
 
+  # build new smoosh
   smoosh = ''
   for index in range(num_of_sentences):
     smoosh += sentences[index]
         
-  print '\t\tTEXT SUMMARY\n'
-  print smoosh
+  smooshsize = len(smoosh)
+  smoosh_percentage_ = 1.0 - (float(smooshsize) / float(filesize))
+  smoosh_percentage = '%.2f' % smoosh_percentage_
+
+  summary =  """
+-_-_-_-_-_-_ METRICS _-_-_-_-_-_-
+Original length: {0} characters
+Smooshed length: {1} characters
+
+Original smooshed by {2}%
+""".format(filesize, smooshsize, smoosh_percentage)
+
+  if write_to_file:
+    f = open('output.txt', 'w')
+    f.write(smoosh)
+    f.write('\n')
+    if not omit_metrics: f.write(summary)
+    f.close()
+  else:
+    print smoosh
+    if not omit_metrics: print summary
 
 if __name__ == '__main__':
   main()
