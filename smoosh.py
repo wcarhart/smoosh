@@ -48,12 +48,7 @@ def extract_words(filename):
       # !EOS
       str_buffer += ch
 
-  for index, sentence in enumerate(sentences):
-    print str(index) + ": " + sentence
-
-  #print sorted(count_words(cleaned_words).items(), key=custom_sort)
-
-  return text
+  return (sentences, sorted(count_words(cleaned_words).items(), key=custom_sort))
 
 def isAbbreviation(text):
   search = text[::-1]
@@ -99,8 +94,24 @@ def count_words(words):
 
   return word_count
 
+def assign_word_scores(word_list):
+  counts_ = map(list, zip(*word_list))[1]
+  counts = sorted(list(set(counts_)))
 
+  scores = {}
+  for index, count in enumerate(counts):
+    scores[count] = index+1
 
+  word_scores = {}
+  for word, occurrence in word_list:
+    word_scores[word] = scores[occurrence]
+
+  return word_scores
+
+def assign_sentence_scores(sentences, word_scores):
+  score = 0
+  scores = {}
+  for index, sentence in enumerate(sentences):
 
 
 def main():
@@ -108,11 +119,10 @@ def main():
     print 'usage: python smmry.py filename.txt'
     sys.exit(1)
 
-  word_list = extract_words(sys.argv[1])
-
-  #print word_list
-
-
+  (sentences, word_list) = extract_words(sys.argv[1])
+  total_word_count = len(word_list)
+  word_scores = assign_word_scores(word_list)
+  sentence_scores = assign_sentence_scores(sentences, word_scores)
 
 if __name__ == '__main__':
   main()
