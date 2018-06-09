@@ -112,17 +112,40 @@ def assign_sentence_scores(sentences, word_scores):
   score = 0
   scores = {}
   for index, sentence in enumerate(sentences):
+    words = sentence.split()
+    cleaned_words = clean_text(words)
+    for word in cleaned_words:
+      score += word_scores[word]
+    scores[index] = score
+    score = 0
 
+  return scores
+      
 
 def main():
   if len(sys.argv) != 2:
     print 'usage: python smmry.py filename.txt'
     sys.exit(1)
 
+  num_of_sentences = 7
+
   (sentences, word_list) = extract_words(sys.argv[1])
   total_word_count = len(word_list)
   word_scores = assign_word_scores(word_list)
   sentence_scores = assign_sentence_scores(sentences, word_scores)
+
+  final_scores = sorted(sentence_scores.items(), key=custom_sort)[::-1]
+  top_sentence_ids = []
+  for index in range(num_of_sentences):
+    top_sentence_ids.append(final_scores[index][0])
+  top_sentence_ids.sort()
+
+  smoosh = ''
+  for index in range(num_of_sentences):
+    smoosh += sentences[index]
+        
+  print '\t\tTEXT SUMMARY\n'
+  print smoosh
 
 if __name__ == '__main__':
   main()
