@@ -2,18 +2,25 @@
 
 import sys
 import argparse
-import copy
+import codecs
+from unidecode import unidecode
 from argparse import RawTextHelpFormatter
 
 ABB = ['etc', 'mr', 'mrs', 'ms', 'dr', 'sr', 'jr', 'gen', 'rep', 'sen', 'st', 'al', 'eg', 'ie', 'in', 'phd', 'md', 'ba', 'dds', 'ma', 'mba', 'us', 'usa']
 EXCLUDE = ['the', 'of', 'to', 'a', 'and', 'in', 'that', 'he', 'she', 'on', 'as', 'his', 'hers', 'for', 'is', 'by', 'was', 'with', 'at', 'from', 'has', 'its', 'mr', 'mr.', 'mrs', 'mrs.', 'ms', 'ms.', 'dr', 'dr.', 'sr', 'sr.', 'jr' 'jr.', 'sen', 'sen.', 'rep', 'rep.', 'st', 'st.', 'said', 'it', 'be', 'not', 'or', 'but', 'who']
 
 def extract_words(filename):
-  f = open(filename, 'rU')
+  f = codecs.open(filename, encoding='utf-8')
   text_ = f.read()
-  text = text_.replace('\n', ' ')
+  text = unidecode(text_)
+  text = text.replace('\n', ' ')
   f.close()
-  
+
+  #f = open(filename, 'rU')
+  #text_ = f.read()
+  #text = text_.replace('\n', ' ')
+  #f.close()
+
   filesize = len(text)
   words = text.split()
   cleaned_words = clean_text(words)[::-1]
@@ -25,7 +32,11 @@ def extract_words(filename):
   ## checking for EOS
   ## if EOS --> append to buffer ('.'), add buffer to array, clear buffer
   ## if !EOS --> append to buffer
+  skip = False
   for index, ch in enumerate(text):
+    if skip:
+      skip = False
+      continue
     if ch == '?' or ch == '!':
       if text[index+1] == ' ':
         # EOS
@@ -45,12 +56,34 @@ def extract_words(filename):
           str_buffer += ch
           sentences.append(str_buffer)
           str_buffer = ''
+      elif text[index+1] == '"' or text[index+1] == "'":
+        if index+2 < len(text) and text[index+2] == ' ':
+          if isAbbreviation(str_buffer):
+            # !EOS
+            str_buffer += ch
+            str_buffer += text[index+1]
+            skip = True
+          elif index+3 < len(text) and text[index+3].upper() == text[index+3]:
+            # EOS
+            str_buffer += ch
+            str_buffer += text[index+1]
+            skip = True
+            sentences.append(str_buffer)
+            str_buffer = ''
+        else:
+          # ! EOS
+          str_buffer += ch
       else:
         # !EOS
         str_buffer += ch
     else:
       # !EOS
       str_buffer += ch
+
+  #for index, sentence in enumerate(sentences):
+   # print str(index) + ': ' + sentence
+
+  #sys.exit(0)
 
   return (filesize, sentences, sorted(count_words(cleaned_words).items(), key=sort_by_last))
 
@@ -198,7 +231,7 @@ def main():
   # build new smoosh
   smoosh = ''
   for index in range(num_of_sentences):
-    smoosh += sentences[index]
+    smoosh += sentences[top_sentence_ids[index]]
         
   smooshsize = len(smoosh)
   smoosh_percentage_ = (1.0 - (float(smooshsize) / float(filesize))) * 100
@@ -229,7 +262,7 @@ Most common words:
   6. {10} ({11} times)
   7. {12} ({13} times)
 
-Most important senteces:
+Most important sentences:
   1. Sentence #{14}
   2. Sentence #{15}
   3. Sentence #{16}
