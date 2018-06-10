@@ -165,24 +165,24 @@ def assign_sentence_scores(sentences, word_scores):
 def parse():
   parser = argparse.ArgumentParser(description='\tsmoosh \n\t/smooSH/ (verb) to squash, crush, or flatten\n\n\tSummarizes a text file', formatter_class=RawTextHelpFormatter)
 
-  parser.add_argument('-n', '--number-of-sentences', type=int, help='the number of sentences that will be used to describe the text (default is 7)', required=False)
+  parser.add_argument('-n', '--num-sentences', type=int, help='the number of sentences that will be used to describe the text (default is 7)', required=False)
   parser.add_argument('-f', '--file', help='if included, output will be written to \'output.txt\'', action='store_true')
   parser.add_argument('-o', '--omit-metrics', help='if included, metric summary will be ommitted', action='store_true')
   parser.add_argument('-v', '--verbose', help='if included, metric summary will be verbose', action='store_true')
   parser.add_argument('filename', type=str, help='the name of the file to be summarized (as a .txt file)')
 
   args = parser.parse_args()
-  if args.number_of_sentences:
-    if args.number_of_sentences < 5:
+  if args.num_sentences:
+    if args.num_sentences < 5:
       print 'WARNING: defaulting to minimum number of sentences, which is 5...'
-      num_of_sentences = 5
-    elif args.number_of_sentences > 10:
+      num_sentences = 5
+    elif args.num_sentences > 10:
       print 'WARNING: defaulting to maximum number of sentences, which is 10...'
-      num_of_sentences = 10
+      num_sentences = 10
     else:
-      num_of_sentences = args.number_of_sentences
+      num_sentences = args.num_sentences
   else:
-    num_of_sentences = 7
+    num_sentences = 7
 
   if args.file:
     write_to_file = True
@@ -205,7 +205,7 @@ def parse():
     print 'ERROR: no filename provided\nUse smoosh.py -h for help'
     sys.exit(0)
 
-  return (num_of_sentences, write_to_file, omit_metrics, verbose, filename)
+  return (num_sentences, write_to_file, omit_metrics, verbose, filename)
 
 def main():
   # grab + parse cmd line arguments
