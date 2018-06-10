@@ -3,7 +3,7 @@
 
 This is a short program to summarize text files. For example, this simple script can take any New York Times, CNN, or Fox News article and _smoosh_ it down by ~70-80% on average. This means that most news articles can be read in just a few sentences!
 
-The current implementation only works from the command line with `.txt` files (although `utf-8` is supported), but the goal in the future is to allow the script to be fed in an html, and scrape the content of the article to be summarized.
+The current implementation only works from the command line with `.txt` files (although `utf-8` is now supported 🎉), but the goal in the future is to allow the script to be fed in an html, and scrape the content of the article to be summarized.
 
 Currently runs successfully on Python 2.7.10
 
