@@ -4,19 +4,27 @@ import sys
 import argparse
 import codecs
 from unidecode import unidecode
+from goose import Goose
 from argparse import RawTextHelpFormatter
 
 ABB = ['etc', 'mr', 'mrs', 'ms', 'dr', 'sr', 'jr', 'gen', 'rep', 'sen', 'st', 'al', 'eg', 'ie', 'in', 'phd', 'md', 'ba', 'dds', 'ma', 'mba', 'us', 'usa']
 EXCLUDE = ['the', 'of', 'to', 'a', 'and', 'in', 'that', 'he', 'she', 'on', 'as', 'his', 'hers', 'for', 'is', 'by', 'was', 'with', 'at', 'from', 'has', 'its', 'mr', 'mr.', 'mrs', 'mrs.', 'ms', 'ms.', 'dr', 'dr.', 'sr', 'sr.', 'jr' 'jr.', 'sen', 'sen.', 'rep', 'rep.', 'st', 'st.', 'said', 'it', 'be', 'not', 'or', 'but', 'who', '--']
 
-def extract_words(filename):
-  f = codecs.open(filename, encoding='utf-8')
-  text_ = f.read()
-  text = unidecode(text_)
-  text = text.replace('\n', ' ')
-  f.close()
+def extract_words(filename, use_text_file):
+  if use_text_file:
+    f = codecs.open(filename, encoding='utf-8')
+    text_ = f.read()
+    text = unidecode(text_)
+    text = text.replace('\n', ' ')
+    f.close()
+  else:
+    g = Goose()
+    article = g.extract(url=filename)
+    text = unidecode(article.cleaned_text)
+    text = text.replace('\n', ' ')
 
   filesize = len(text)
+  text += '   '
   words = text.split()
   cleaned_words = clean_text(words)[::-1]
 
@@ -74,6 +82,9 @@ def extract_words(filename):
     else:
       # !EOS
       str_buffer += ch
+
+  for index, sentence in enumerate(sentences):
+    print str(index) + ': ' + sentence
 
   return (filesize, sentences, sorted(count_words(cleaned_words).items(), key=sort_by_last))
 
@@ -163,13 +174,14 @@ def assign_sentence_scores(sentences, word_scores):
   return scores
       
 def parse():
-  parser = argparse.ArgumentParser(description='\tsmoosh \n\t/smooSH/ (verb) to squash, crush, or flatten\n\n\tSummarizes a text file', formatter_class=RawTextHelpFormatter)
+  parser = argparse.ArgumentParser(description='\tsmoosh \n\t/smooSH/ (verb) to squash, crush, or flatten\n\n\tSummarizes any text article, either as a .txt file or on a webpage specified by a url', formatter_class=RawTextHelpFormatter)
 
   parser.add_argument('-n', '--num-sentences', type=int, help='the number of sentences that will be used to describe the text (default is 7)', required=False)
   parser.add_argument('-f', '--file', help='if included, output will be written to \'output.txt\'', action='store_true')
   parser.add_argument('-o', '--omit-metrics', help='if included, metric summary will be ommitted', action='store_true')
   parser.add_argument('-v', '--verbose', help='if included, metric summary will be verbose', action='store_true')
-  parser.add_argument('filename', type=str, help='the name of the file to be summarized (as a .txt file)')
+  parser.add_argument('-i', '--input', help='if included, input will be as a .txt file rather than a URL', action='store_true')
+  parser.add_argument('article', type=str, help='the URL of the target article (if -i is included, the name of the .txt file)')
 
   args = parser.parse_args()
   if args.num_sentences:
@@ -199,20 +211,25 @@ def parse():
   else:
     verbose = False
 
-  if args.filename:
-    filename = args.filename
+  if args.input:
+    use_text_file = True
+  else:
+    use_text_file = False
+
+  if args.article:
+    article = args.article
   else:
     print 'ERROR: no filename provided\nUse smoosh.py -h for help'
     sys.exit(0)
 
-  return (num_sentences, write_to_file, omit_metrics, verbose, filename)
+  return (num_sentences, write_to_file, omit_metrics, verbose, use_text_file, article)
 
 def main():
   # grab + parse cmd line arguments
-  (num_of_sentences, write_to_file, omit_metrics, verbose, filename) = parse()
+  (num_of_sentences, write_to_file, omit_metrics, verbose, use_text_file, filename) = parse()
 
   # read from file and score sentences
-  (filesize, sentences, word_list) = extract_words(filename)
+  (filesize, sentences, word_list) = extract_words(filename, use_text_file)
   word_scores = assign_word_scores(word_list)
   sentence_scores = assign_sentence_scores(sentences, word_scores)
 
