@@ -2,9 +2,11 @@
 
 import sys
 import argparse
+import copy
 from argparse import RawTextHelpFormatter
 
 ABB = ['etc', 'mr', 'mrs', 'ms', 'dr', 'sr', 'jr', 'gen', 'rep', 'sen', 'st', 'al', 'eg', 'ie', 'in', 'phd', 'md', 'ba', 'dds', 'ma', 'mba', 'us', 'usa']
+EXCLUDE = ['the', 'of', 'to', 'a', 'and', 'in', 'that', 'he', 'she', 'on', 'as', 'his', 'hers', 'for', 'is', 'by', 'was', 'with', 'at', 'from', 'has', 'its', 'mr', 'mr.', 'mrs', 'mrs.', 'ms', 'ms.', 'dr', 'dr.', 'sr', 'sr.', 'jr' 'jr.', 'sen', 'sen.', 'rep', 'rep.', 'st', 'st.', 'said', 'it', 'be', 'not', 'or', 'but', 'who']
 
 def extract_words(filename):
   f = open(filename, 'rU')
@@ -50,7 +52,7 @@ def extract_words(filename):
       # !EOS
       str_buffer += ch
 
-  return (filesize, sentences, sorted(count_words(cleaned_words).items(), key=custom_sort))
+  return (filesize, sentences, sorted(count_words(cleaned_words).items(), key=sort_by_last))
 
 def isAbbreviation(text):
   search = text[::-1]
@@ -71,8 +73,11 @@ def isAbbreviation(text):
   else:
     return False
 
-def custom_sort(s):
+def sort_by_last(s):
   return s[-1]
+
+def sort_by_first(s):
+  return s[0]
 
 def clean_text(words):
   cleaned_words = []
@@ -108,6 +113,12 @@ def assign_word_scores(word_list):
   for word, occurrence in word_list:
     word_scores[word] = scores[occurrence]
 
+  for word_score in word_scores:
+    if word_score in EXCLUDE:
+      word_scores[word_score] = 0
+    if not word_score.isalpha():
+      word_scores[word_score] = 0
+
   return word_scores
 
 def assign_sentence_scores(sentences, word_scores):
@@ -129,6 +140,7 @@ def parse():
   parser.add_argument('-n', '--number-of-sentences', type=int, help='the number of sentences that will be used to describe the text (default is 7)', required=False)
   parser.add_argument('-f', '--file', help='if included, output will be written to \'output.txt\'', action='store_true')
   parser.add_argument('-o', '--omit-metrics', help='if included, metric summary will be ommitted', action='store_true')
+  parser.add_argument('-v', '--verbose', help='if included, metric summary will be verbose', action='store_true')
   parser.add_argument('filename', type=str, help='the name of the file to be summarized (as a .txt file)')
 
   args = parser.parse_args()
@@ -154,17 +166,22 @@ def parse():
   else:
     omit_metrics = False
 
+  if args.verbose:
+    verbose = True
+  else:
+    verbose = False
+
   if args.filename:
     filename = args.filename
   else:
     print 'ERROR: no filename provided\nUse smoosh.py -h for help'
     sys.exit(0)
 
-  return (num_of_sentences, write_to_file, omit_metrics, filename)
+  return (num_of_sentences, write_to_file, omit_metrics, verbose, filename)
 
 def main():
   # grab + parse cmd line arguments
-  (num_of_sentences, write_to_file, omit_metrics, filename) = parse()
+  (num_of_sentences, write_to_file, omit_metrics, verbose, filename) = parse()
 
   # read from file and score sentences
   (filesize, sentences, word_list) = extract_words(filename)
@@ -172,7 +189,7 @@ def main():
   sentence_scores = assign_sentence_scores(sentences, word_scores)
 
   # sort top sentences
-  final_scores = sorted(sentence_scores.items(), key=custom_sort)[::-1]
+  final_scores = sorted(sentence_scores.items(), key=sort_by_last)[::-1]
   top_sentence_ids = []
   for index in range(num_of_sentences):
     top_sentence_ids.append(final_scores[index][0])
@@ -184,7 +201,7 @@ def main():
     smoosh += sentences[index]
         
   smooshsize = len(smoosh)
-  smoosh_percentage_ = 1.0 - (float(smooshsize) / float(filesize))
+  smoosh_percentage_ = (1.0 - (float(smooshsize) / float(filesize))) * 100
   smoosh_percentage = '%.2f' % smoosh_percentage_
 
   summary =  """
@@ -194,6 +211,31 @@ Smooshed length: {1} characters
 
 Original smooshed by {2}%
 """.format(filesize, smooshsize, smoosh_percentage)
+
+  if verbose:
+
+    mcw = []
+    sorted_words = sorted(word_scores.items(), key=sort_by_last)[::-1]
+    for index in range(7):
+      mcw.append(sorted_words[index])
+
+    summary += """
+Most common words:
+  1. {0} ({1} times)
+  2. {2} ({3} times)
+  3. {4} ({5} times)
+  4. {6} ({7} times)
+  5. {8} ({9} times)
+  6. {10} ({11} times)
+  7. {12} ({13} times)
+
+Most important senteces:
+  1. Sentence #{14}
+  2. Sentence #{15}
+  3. Sentence #{16}
+  4. Sentence #{17}
+  5. Sentence #{18}
+""".format(mcw[0][0], mcw[0][1], mcw[1][0], mcw[1][1], mcw[2][0], mcw[2][1], mcw[3][0], mcw[3][1], mcw[4][0], mcw[4][1], mcw[5][0], mcw[5][1], mcw[6][0], mcw[6][1], top_sentence_ids[0]+1, top_sentence_ids[1]+1, top_sentence_ids[2]+1, top_sentence_ids[3]+1, top_sentence_ids[4]+1)
 
   if write_to_file:
     f = open('output.txt', 'w')
