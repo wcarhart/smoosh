@@ -7,7 +7,7 @@ from unidecode import unidecode
 from argparse import RawTextHelpFormatter
 
 ABB = ['etc', 'mr', 'mrs', 'ms', 'dr', 'sr', 'jr', 'gen', 'rep', 'sen', 'st', 'al', 'eg', 'ie', 'in', 'phd', 'md', 'ba', 'dds', 'ma', 'mba', 'us', 'usa']
-EXCLUDE = ['the', 'of', 'to', 'a', 'and', 'in', 'that', 'he', 'she', 'on', 'as', 'his', 'hers', 'for', 'is', 'by', 'was', 'with', 'at', 'from', 'has', 'its', 'mr', 'mr.', 'mrs', 'mrs.', 'ms', 'ms.', 'dr', 'dr.', 'sr', 'sr.', 'jr' 'jr.', 'sen', 'sen.', 'rep', 'rep.', 'st', 'st.', 'said', 'it', 'be', 'not', 'or', 'but', 'who']
+EXCLUDE = ['the', 'of', 'to', 'a', 'and', 'in', 'that', 'he', 'she', 'on', 'as', 'his', 'hers', 'for', 'is', 'by', 'was', 'with', 'at', 'from', 'has', 'its', 'mr', 'mr.', 'mrs', 'mrs.', 'ms', 'ms.', 'dr', 'dr.', 'sr', 'sr.', 'jr' 'jr.', 'sen', 'sen.', 'rep', 'rep.', 'st', 'st.', 'said', 'it', 'be', 'not', 'or', 'but', 'who', '--']
 
 def extract_words(filename):
   f = codecs.open(filename, encoding='utf-8')
@@ -15,11 +15,6 @@ def extract_words(filename):
   text = unidecode(text_)
   text = text.replace('\n', ' ')
   f.close()
-
-  #f = open(filename, 'rU')
-  #text_ = f.read()
-  #text = text_.replace('\n', ' ')
-  #f.close()
 
   filesize = len(text)
   words = text.split()
@@ -79,11 +74,6 @@ def extract_words(filename):
     else:
       # !EOS
       str_buffer += ch
-
-  #for index, sentence in enumerate(sentences):
-   # print str(index) + ': ' + sentence
-
-  #sys.exit(0)
 
   return (filesize, sentences, sorted(count_words(cleaned_words).items(), key=sort_by_last))
 
@@ -146,11 +136,16 @@ def assign_word_scores(word_list):
   for word, occurrence in word_list:
     word_scores[word] = scores[occurrence]
 
-  for word_score in word_scores:
-    if word_score in EXCLUDE:
-      word_scores[word_score] = 0
-    if not word_score.isalpha():
-      word_scores[word_score] = 0
+  for word in word_scores:
+    if word in EXCLUDE:
+      word_scores[word] = 0
+    hasNumbers = False
+    for ch in word:
+      if ch.isdigit():
+        hasNumbers = True
+
+    if hasNumbers:
+      word_scores[word] = 0
 
   return word_scores
 
@@ -227,6 +222,7 @@ def main():
   for index in range(num_of_sentences):
     top_sentence_ids.append(final_scores[index][0])
   top_sentence_ids.sort()
+
 
   # build new smoosh
   smoosh = ''
