@@ -50,15 +50,9 @@ def extract_words(filename, use_text_file):
         # EOS
         sentences_.append(str_buffer)
         str_buffer = ''
-      else:
-        # !EOS
-        print('')
     elif ch == '.':
       if text[index+1] == ' ':
-        if isAbbreviation(str_buffer):
-          # !EOS
-          print('')
-        elif text[index+2].upper() == text[index+2]:
+        if isAbbreviation(str_buffer) or text[index+2].upper() == text[index+2]:
           # EOS
           sentences_.append(str_buffer)
           str_buffer = ''
@@ -74,15 +68,6 @@ def extract_words(filename, use_text_file):
             skip = True
             sentences_.append(str_buffer)
             str_buffer = ''
-        else:
-          # ! EOS
-          print('')
-      else:
-        # !EOS
-        print('')
-    else:
-      # !EOS
-      print('')
 
   # remove extraneous sentences
   sentences = []
