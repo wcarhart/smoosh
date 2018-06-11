@@ -4,7 +4,8 @@ import sys
 import argparse
 import codecs
 from unidecode import unidecode
-from goose import Goose
+from newspaper import fulltext
+import requests
 from argparse import RawTextHelpFormatter
 
 ABB = ['etc', 'mr', 'mrs', 'ms', 'dr', 'sr', 'jr', 'gen', 'rep', 'sen', 'st', 'al', 'eg', 'ie', 'in', 'phd', 'md', 'ba', 'dds', 'ma', 'mba', 'us', 'usa']
@@ -16,19 +17,21 @@ def extract_words(filename, use_text_file):
     text_ = f.read()
     text = unidecode(text_)
     text = text.replace('\n', ' ')
+    text = text.replace(' " ', '')
     f.close()
   else:
-    g = Goose()
-    article = g.extract(url=filename)
-    text = unidecode(article.cleaned_text)
+    html = requests.get(filename).text
+    text_ = fulltext(html)
+    text = unidecode(text_)
     text = text.replace('\n', ' ')
+    text = text.replace(' " ', '')
 
   filesize = len(text)
   text += '   '
   words = text.split()
   cleaned_words = clean_text(words)[::-1]
 
-  sentences = []
+  sentences_ = []
   str_buffer = ''
 
   # EOS = end of sentence
@@ -36,55 +39,56 @@ def extract_words(filename, use_text_file):
   ## if EOS --> append to buffer ('.'), add buffer to array, clear buffer
   ## if !EOS --> append to buffer
   skip = False
+  seen = 1
   for index, ch in enumerate(text):
+    str_buffer += ch
     if skip:
       skip = False
       continue
     if ch == '?' or ch == '!':
       if text[index+1] == ' ':
         # EOS
-        str_buffer += ch
-        sentences.append(str_buffer)
+        sentences_.append(str_buffer)
         str_buffer = ''
       else:
         # !EOS
-        str_buffer += ch
+        print('')
     elif ch == '.':
       if text[index+1] == ' ':
         if isAbbreviation(str_buffer):
           # !EOS
-          str_buffer += ch
+          print('')
         elif text[index+2].upper() == text[index+2]:
           # EOS
-          str_buffer += ch
-          sentences.append(str_buffer)
+          sentences_.append(str_buffer)
           str_buffer = ''
       elif text[index+1] == '"' or text[index+1] == "'":
         if index+2 < len(text) and text[index+2] == ' ':
           if isAbbreviation(str_buffer):
             # !EOS
-            str_buffer += ch
             str_buffer += text[index+1]
             skip = True
           elif index+3 < len(text) and text[index+3].upper() == text[index+3]:
             # EOS
-            str_buffer += ch
             str_buffer += text[index+1]
             skip = True
-            sentences.append(str_buffer)
+            sentences_.append(str_buffer)
             str_buffer = ''
         else:
           # ! EOS
-          str_buffer += ch
+          print('')
       else:
         # !EOS
-        str_buffer += ch
+        print('')
     else:
       # !EOS
-      str_buffer += ch
+      print('')
 
-  for index, sentence in enumerate(sentences):
-    print str(index) + ': ' + sentence
+  # remove extraneous sentences
+  sentences = []
+  for sentence in sentences_:
+    if not sentence.isupper():
+      sentences.append(sentence)
 
   return (filesize, sentences, sorted(count_words(cleaned_words).items(), key=sort_by_last))
 
@@ -118,7 +122,7 @@ def clean_text(words):
 
   for word in words:
     cleaned_word = word
-    cleaned_word.replace('"', '')
+    cleaned_word.replace('\"', '')
     # do more cleaning here
     cleaned_word = cleaned_word.lower()
     cleaned_words.append(cleaned_word)
@@ -136,7 +140,7 @@ def count_words(words):
   return word_count
 
 def assign_word_scores(word_list):
-  counts_ = map(list, zip(*word_list))[1]
+  counts_ = list(zip(*word_list))[1]
   counts = sorted(list(set(counts_)))
 
   scores = {}
@@ -167,7 +171,8 @@ def assign_sentence_scores(sentences, word_scores):
     words = sentence.split()
     cleaned_words = clean_text(words)
     for word in cleaned_words:
-      score += word_scores[word]
+      if not word == '"':
+        score += word_scores[word]
     scores[index] = score
     score = 0
 
@@ -186,10 +191,10 @@ def parse():
   args = parser.parse_args()
   if args.num_sentences:
     if args.num_sentences < 5:
-      print 'WARNING: defaulting to minimum number of sentences, which is 5...'
+      print('WARNING: defaulting to minimum number of sentences, which is 5...')
       num_sentences = 5
     elif args.num_sentences > 10:
-      print 'WARNING: defaulting to maximum number of sentences, which is 10...'
+      print('WARNING: defaulting to maximum number of sentences, which is 10...')
       num_sentences = 10
     else:
       num_sentences = args.num_sentences
@@ -219,7 +224,7 @@ def parse():
   if args.article:
     article = args.article
   else:
-    print 'ERROR: no filename provided\nUse smoosh.py -h for help'
+    print('ERROR: no filename provided\nUse smoosh.py -h for help')
     sys.exit(0)
 
   return (num_sentences, write_to_file, omit_metrics, verbose, use_text_file, article)
@@ -230,6 +235,9 @@ def main():
 
   # read from file and score sentences
   (filesize, sentences, word_list) = extract_words(filename, use_text_file)
+  if num_of_sentences > len(sentences):
+    print('WARNING: article is less than %d sentences long, returning original article' % num_of_sentences)
+    num_of_sentences = len(sentences)
   word_scores = assign_word_scores(word_list)
   sentence_scores = assign_sentence_scores(sentences, word_scores)
 
@@ -290,8 +298,8 @@ Most important sentences:
     if not omit_metrics: f.write(summary)
     f.close()
   else:
-    print smoosh
-    if not omit_metrics: print summary
+    print(smoosh)
+    if not omit_metrics: print(summary)
 
 if __name__ == '__main__':
   main()
