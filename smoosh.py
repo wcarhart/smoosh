@@ -40,7 +40,8 @@ EXCLUDE = [
     'or', 'but', 'who', 'when', 'your', 'those',
     'these', 'you', 'this', 'they', 'we', 'our',
     'will', 'are', 'am', 'can', 'an', 'have', 'how',
-    'my', 'which', 'their', 'theirs', 'what'
+    'my', 'which', 'their', 'theirs', 'what', 'her',
+    'him', 'had', 'would', 'them'
 ]
 
 # if we see a lot of these symbols, the sentence is likely code and should
