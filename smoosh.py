@@ -39,7 +39,8 @@ EXCLUDE = [
     'sen', 'rep', 'st', 'said', 'it', 'be', 'not',
     'or', 'but', 'who', 'when', 'your', 'those',
     'these', 'you', 'this', 'they', 'we', 'our',
-    'will', 'are', 'am', 'can'
+    'will', 'are', 'am', 'can', 'an', 'have', 'how',
+    'my', 'which', 'their', 'theirs'
 ]
 
 # if we see a lot of these symbols, the sentence is likely code and should
