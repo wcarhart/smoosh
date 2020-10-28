@@ -11,7 +11,8 @@ ABB = [
     'etc', 'mr', 'mrs', 'ms', 'dr', 'sr',
     'jr', 'gen', 'rep', 'sen', 'st', 'al',
     'eg', 'ie', 'in', 'phd', 'md', 'ba',
-    'dds', 'ma', 'mba', 'us', 'usa', 'inc'
+    'dds', 'ma', 'mba', 'us', 'usa', 'inc',
+    'pm', 'am'
 ]
 
 # if we come across a word with a '.' that ends in one of these common file
@@ -19,14 +20,14 @@ ABB = [
 EXT = [
     'js', 'py', 'txt', 'json', 'doc', 'docx', 'pdf',
     'bash', 'sh', 'java', 'jsx', 'html', 'css', 'db',
-    'md', 'csh', 'zsh', 'xsh', 'h', 'cpp', 'c', 'swift',
-    'gpg', 'pickle', 'png', 'jpg', 'jpeg', 'gif', 'tiff',
-    'lock', 'rb', 'git', 'gitignore', 'ico', 'webmanifest',
+    'md', 'csh', 'zsh', 'xsh', 'cpp', 'swift', 'gpg',
+    'pickle', 'png', 'jpg', 'jpeg', 'gif', 'tiff', 'lock',
+    'rb', 'git', 'gitignore', 'ico', 'webmanifest',
     'icns', 'xls', 'xlsx', 'ppt', 'pptx', 'asp', 'aspx',
-    'yaws', 'pl', 'php', 'xml', 'svg', 'heic', 'mov', 'bz2',
-    'csv', 'cs', 'erl', 'a', 'asm', 'awk', 'bat', 'bmp',
-    'class', 'dll', 'dump', 'exe', 'hpp', 'jar', 'log', 'o', 
-    'obj', 'r', 'rc', 'ts', 'rs', 'wav', 'zip', 'com', 'nl'
+    'yaws', 'pl', 'php', 'xml', 'svg', 'heic', 'mov',
+    'bz2', 'csv', 'cs', 'erl', 'asm', 'awk', 'bat', 'bmp',
+    'class', 'dll', 'dump', 'exe', 'hpp', 'jar', 'log', 
+    'obj', 'rc', 'ts', 'rs', 'wav', 'zip', 'com', 'nl',
 ]
 
 # we should exclude these common words when scoring sentences to get more
@@ -106,7 +107,15 @@ def get_sentences(text):
     while index < len(sentences) - 2:
         last_word_previous_sentence = ''.join(character for character in sentences[index].split()[-1].lower() if character.isalnum()).lower()
         first_word_next_sentence = ''.join(character for character in sentences[index+1].split()[0].lower() if character.isalnum()).lower()
-        if last_word_previous_sentence in ABB or first_word_next_sentence in EXT:
+        if (
+            last_word_previous_sentence in ABB
+            or first_word_next_sentence in EXT
+            or len(last_word_previous_sentence) == 1
+            or len(first_word_next_sentence) == 1
+        ) and (
+            not last_word_previous_sentence in ['a', 'i']
+            and not first_word_next_sentence in ['a', 'i']
+        ):
             sentences[index] = '.'.join([sentences[index], sentences[index + 1]])
             del sentences[index + 1]
         else:
@@ -146,7 +155,12 @@ def calculate_sentence_scores(sentences, frequencies):
                 continue
             score += frequencies[raw_word]
         scores.append(score)
-    return list(zip(sentences, scores))
+
+    # weight first 10% of text heavier, as most news articles are front-loaded
+    sentence_scores = list(zip(sentences, scores))
+    for index in range(int(len(sentence_scores)*0.1)):
+        sentence_scores[index] = (sentence_scores[index][0], int(sentence_scores[index][1]*1.5))
+    return sentence_scores
 
 # build the summary string based on the most important sentences
 def build_summary(scores, limit):
@@ -209,8 +223,8 @@ def print_results(summary, metrics):
 
 # build the command line parser
 def build_parser():
-    parser = argparse.ArgumentParser(description='\tsmoosh \n\t/smooSH/ (verb) to squash, crush, or flatten\n\n\tSummarizes any text article', formatter_class=argparse.RawTextHelpFormatter)
-    parser.add_argument('source', type=str, help='the text source, which can either be a local file or a URL to a webpage')
+    parser = argparse.ArgumentParser(description='Summarize any text article', formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('source', type=str, help='the text source, which can either be the path to a local file or a URL to a webpage')
     parser.add_argument('-n', '--sentence-limit', type=int, default=7, required=False, help='the number of sentences that will be used to describe the text')
     parser.add_argument('-o', '--omit-metrics', action='store_true', required=False, help='omit metric summary')
     parser.add_argument('-v', '--verbose', action='store_true', required=False, help='print verbose metric summary')
