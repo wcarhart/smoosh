@@ -40,7 +40,7 @@ EXCLUDE = [
     'or', 'but', 'who', 'when', 'your', 'those',
     'these', 'you', 'this', 'they', 'we', 'our',
     'will', 'are', 'am', 'can', 'an', 'have', 'how',
-    'my', 'which', 'their', 'theirs'
+    'my', 'which', 'their', 'theirs', 'what'
 ]
 
 # if we see a lot of these symbols, the sentence is likely code and should
@@ -63,7 +63,7 @@ def get_text(source):
             with open(source) as f:
                 text = f.read()
         except:
-            print(f'err: could not read from file \'{source}\'')
+            print(f'Could not read from file \'{source}\'')
             sys.exit(1)
     else:
         try:
@@ -74,24 +74,24 @@ def get_text(source):
                 script.extract()
             text = soup.get_text()
         except:
-            print(f'err: could not get data from URL \'{source}\'')
+            print(f'Could not get data from URL \'{source}\'')
             sys.exit(1)
 
     if not status_code == 200:
-        print(f'err: ({status_code}) could not scrape data from URL \'{source}\'')
+        print(f'({status_code}) Could not scrape data from URL \'{source}\'')
         sys.exit(1)
 
     # decode text to ASCII-ish
     try:
         text = unidecode.unidecode(text)
     except:
-        print(f'err: could not decode data from \'{source}\'')
+        print(f'Could not decode data from \'{source}\'')
         sys.exit(1)
 
     # replace persnickity characters
     text = text.replace('\n', ' ').replace(' " ', ' ').replace(" ' ", '')
     if text == '' or text == None or not '.' in text:
-        print(f'err: could not parse data from \'{source}\'')
+        print(f'Could not parse data from \'{source}\'')
         sys.exit(1)
     return text
 
