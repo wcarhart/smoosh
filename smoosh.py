@@ -1,291 +1,224 @@
-#!/lib/bin/python
-
-import sys
 import argparse
-import codecs
-from unidecode import unidecode
-from newspaper import fulltext
+import bs4
+import os
+import re
 import requests
-from argparse import RawTextHelpFormatter
+import sys
+import unidecode
 
-ABB = ['etc', 'mr', 'mrs', 'ms', 'dr', 'sr', 'jr', 'gen', 'rep', 'sen', 'st', 'al', 'eg', 'ie', 'in', 'phd', 'md', 'ba', 'dds', 'ma', 'mba', 'us', 'usa']
-EXCLUDE = ['the', 'of', 'to', 'a', 'and', 'in', 'that', 'he', 'she', 'on', 'as', 'his', 'hers', 'for', 'is', 'by', 'was', 'with', 'at', 'from', 'has', 'its', 'mr', 'mr.', 'mrs', 'mrs.', 'ms', 'ms.', 'dr', 'dr.', 'sr', 'sr.', 'jr' 'jr.', 'sen', 'sen.', 'rep', 'rep.', 'st', 'st.', 'said', 'it', 'be', 'not', 'or', 'but', 'who', '--']
+# we can't split sentences on abbreviations that end in a '.'
+ABB = [
+    'etc', 'mr', 'mrs', 'ms', 'dr', 'sr',
+    'jr', 'gen', 'rep', 'sen', 'st', 'al',
+    'eg', 'ie', 'in', 'phd', 'md', 'ba',
+    'dds', 'ma', 'mba', 'us', 'usa', 'inc'
+]
 
-def extract_words(filename, use_text_file):
-  if use_text_file:
-    f = codecs.open(filename, encoding='utf-8')
-    text_ = f.read()
-    text = unidecode(text_)
-    text = text.replace('\n', ' ')
-    text = text.replace(' " ', '')
-    f.close()
-  else:
-    html = requests.get(filename).text
-    text_ = fulltext(html)
-    text = unidecode(text_)
-    text = text.replace('\n', ' ')
-    text = text.replace(' " ', '')
+# if we come across a word with a '.' that ends in one of these common file
+# extensions, we should not split on the '.'
+EXT = [
+    'js', 'py', 'txt', 'json', 'doc', 'docx', 'pdf',
+    'bash', 'sh', 'java', 'jsx', 'html', 'css', 'db',
+    'md', 'csh', 'zsh', 'xsh', 'h', 'cpp', 'c', 'swift',
+    'gpg', 'pickle', 'png', 'jpg', 'jpeg', 'gif', 'tiff',
+    'lock', 'rb', 'git', 'gitignore', 'ico', 'webmanifest',
+    'icns', 'xls', 'xlsx', 'ppt', 'pptx', 'asp', 'aspx',
+    'yaws', 'pl', 'php', 'xml', 'svg', 'heic', 'mov', 'bz2',
+    'csv', 'cs', 'erl', 'a', 'asm', 'awk', 'bat', 'bmp',
+    'class', 'dll', 'dump', 'exe', 'hpp', 'jar', 'log', 'o', 
+    'obj', 'r', 'rc', 'ts', 'rs', 'wav', 'zip', 'com', 'nl'
+]
 
-  filesize = len(text)
-  text += '   '
-  words = text.split()
-  cleaned_words = clean_text(words)[::-1]
+# we should exclude these common words when scoring sentences to get more
+# accurate sentence scores
+EXCLUDE = [
+    'the', 'of', 'to', 'a', 'and', 'in', 'that',
+    'he', 'she', 'on', 'as', 'his', 'hers', 'for',
+    'is', 'by', 'was', 'with', 'at', 'from', 'has',
+    'its', 'mr', 'mrs', 'ms', 'dr', 'sr', 'jr',
+    'sen', 'rep', 'st', 'said', 'it', 'be', 'not',
+    'or', 'but', 'who', 'when', 'your', 'those',
+    'these', 'you', 'this', 'they', 'we', 'our',
+    'will', 'are', 'am', 'can'
+]
 
-  sentences_ = []
-  str_buffer = ''
+# if we see a lot of these symbols, the sentence is likely code and should
+# be ignored
+CODE = [
+    '{', '}', '=', '[', ']', '/', '\\', '@', ':',
+    '<', '>', '!', '|', '*', '+', '-', ';', '?',
+    '(', ')', '$', '&', '%', '^', '_', '#', '~',
+    '`'
+]
 
-  # EOS = end of sentence
-  ## checking for EOS
-  ## if EOS --> append to buffer ('.'), add buffer to array, clear buffer
-  ## if !EOS --> append to buffer
-  skip = False
-  seen = 1
-  for index, ch in enumerate(text):
-    str_buffer += ch
-    if skip:
-      skip = False
-      continue
-    if ch == '?' or ch == '!':
-      if text[index+1] == ' ':
-        # EOS
-        sentences_.append(str_buffer)
-        str_buffer = ''
-    elif ch == '.':
-      if text[index+1] == ' ':
-        if isAbbreviation(str_buffer) or text[index+2].upper() == text[index+2]:
-          # EOS
-          sentences_.append(str_buffer)
-          str_buffer = ''
-      elif text[index+1] == '"' or text[index+1] == "'":
-        if index+2 < len(text) and text[index+2] == ' ':
-          if isAbbreviation(str_buffer):
-            # !EOS
-            str_buffer += text[index+1]
-            skip = True
-          elif index+3 < len(text) and text[index+3].upper() == text[index+3]:
-            # EOS
-            str_buffer += text[index+1]
-            skip = True
-            sentences_.append(str_buffer)
-            str_buffer = ''
+# try to pull text out of source
+def get_text(source):
+    text = None
+    status_code = None
 
-  # remove extraneous sentences
-  sentences = []
-  for sentence in sentences_:
-    if not sentence.isupper():
-      sentences.append(sentence)
-
-  return (filesize, sentences, sorted(count_words(cleaned_words).items(), key=sort_by_last))
-
-def isAbbreviation(text):
-  search = text[::-1]
-  buff = ''
-
-  for ch in search:
-    if not ch == ' ':
-      buff += ch
+    # read text from file or URL
+    if os.path.isfile(source):
+        try:
+            with open(source) as f:
+                text = f.read()
+        except:
+            print(f'err: could not read from file \'{source}\'')
+            sys.exit(1)
     else:
-      break
+        try:
+            html = requests.get(source)
+            status_code = html.status_code
+            soup = bs4.BeautifulSoup(html.content, 'html.parser')
+            for script in soup(['script', 'style']):
+                script.extract()
+            text = soup.get_text()
+        except:
+            print(f'err: could not get data from URL \'{source}\'')
+            sys.exit(1)
 
-  buff = buff[::-1]
-  buff = buff.lower()
-  buff = buff.replace('.', '')
+    if not status_code == 200:
+        print(f'err: ({status_code}) could not scrape data from URL \'{source}\'')
+        sys.exit(1)
 
-  if buff in ABB:
-    return True
-  else:
-    return False
+    # decode text to ASCII-ish
+    try:
+        text = unidecode.unidecode(text)
+    except:
+        print(f'err: could not decode data from \'{source}\'')
+        sys.exit(1)
 
-def sort_by_last(s):
-  return s[-1]
+    # replace persnickity characters
+    text = text.replace('\n', ' ').replace(' " ', ' ').replace(" ' ", '')
+    if text == '' or text == None or not '.' in text:
+        print(f'err: could not parse data from \'{source}\'')
+        sys.exit(1)
+    return text
 
-def sort_by_first(s):
-  return s[0]
+# build resolved sentences from a block of text
+def get_sentences(text):
+    sentences = [chunk for chunk in text.split('.') if not chunk == '' and not chunk.isspace()]
+    # sentences = [chunk for chunk in re.split('[.?!]', text) if not chunk == '' and not chunk.isspace()]
 
-def clean_text(words):
-  cleaned_words = []
+    # we'll need to make sure we split up our sentences properly based on ABB and EXT
+    index = 0
+    while index < len(sentences) - 2:
+        last_word_previous_sentence = ''.join(character for character in sentences[index].split()[-1].lower() if character.isalnum()).lower()
+        first_word_next_sentence = ''.join(character for character in sentences[index+1].split()[0].lower() if character.isalnum()).lower()
+        if last_word_previous_sentence in ABB or first_word_next_sentence in EXT:
+            sentences[index] = '.'.join([sentences[index], sentences[index + 1]])
+            del sentences[index + 1]
+        else:
+            index += 1
+    return [sentence.strip() for sentence in sentences]
 
-  for word in words:
-    cleaned_word = word
-    cleaned_word.replace('\"', '')
-    # do more cleaning here
-    cleaned_word = cleaned_word.lower()
-    cleaned_words.append(cleaned_word)
+# calculate how frequently each word occurs in the text
+# we want to ignore the words in EXCLUDE
+def calculate_word_frequency(sentences):
+    frequencies = {}
+    words = ' '.join(sentences).split()
+    raw_words = [''.join(character for character in word if character.isalnum()).lower() for word in words]
+    for word in raw_words:
+        if word in EXCLUDE:
+            frequencies[word] = 0
+        elif word in frequencies:
+            frequencies[word] += 1
+        else:
+            frequencies[word] = 1
 
-  return cleaned_words
+    if '' in frequencies:
+        del frequencies['']
+    return frequencies
 
-def count_words(words):
-  word_count = {}
-  for word in words:
-    if word in word_count:
-      word_count[word] += 1
-    else:
-      word_count[word] = 1
+# calculate the score for each sentence depending on its word contents
+def calculate_sentence_scores(sentences, frequencies):
+    scores = []
+    for sentence in sentences:
+        score = 0
+        if sum(map(sentence.count, CODE)) >= 10:
+            scores.append(score)
+            continue
 
-  return word_count
+        for word in sentence.split():
+            raw_word = ''.join(character for character in word if character.isalnum()).lower()
+            if raw_word == '':
+                continue
+            score += frequencies[raw_word]
+        scores.append(score)
+    return list(zip(sentences, scores))
 
-def assign_word_scores(word_list):
-  counts_ = list(zip(*word_list))[1]
-  counts = sorted(list(set(counts_)))
+# build the summary string based on the most important sentences
+def build_summary(scores, limit):
+    # build list of sentence indicies
+    sentence_indices = []
+    for index, score in enumerate(scores):
+        sentence_indices.append((index, score[1]))
 
-  scores = {}
-  for index, count in enumerate(counts):
-    scores[count] = index+1
+    # sort based on sentence score
+    sorted_sentences = sorted(sentence_indices, key=lambda item: item[1])[::-1]
 
-  word_scores = {}
-  for word, occurrence in word_list:
-    word_scores[word] = scores[occurrence]
+    # build list of highest ranked sentences
+    summary_sentences = []
+    for index in range(limit):
+        if index < len(scores) - 1:
+            summary_sentences.append(scores[sorted_sentences[index][0]][0])
 
-  for word in word_scores:
-    if word in EXCLUDE:
-      word_scores[word] = 0
-    hasNumbers = False
-    for ch in word:
-      if ch.isdigit():
-        hasNumbers = True
+    # clean up text and convert to string
+    summary = '. '.join(summary_sentences) + '.'
+    summary = ' '.join(summary.split())
+    return summary
 
-    if hasNumbers:
-      word_scores[word] = 0
+# build the metrics string based on summary properties
+def build_metrics(text, summary, frequencies, omit, verbose):
+    metrics = ''
+    if omit:
+        return metrics
+    
+    original_length = len(text)
+    smooshed_length = len(summary)
+    smooshed_percentage = (1.0 - (float(smooshed_length) / float(original_length))) * 100
+    smooshed_percentage = '%.2f' % smooshed_percentage
+    metrics += '-_-_-_-_-_-_ METRICS _-_-_-_-_-_-\n'
+    metrics += f'Original length: {original_length} characters\n'
+    metrics += f'Smooshed length: {smooshed_length} characters\n'
+    metrics += f'Original smooshed by {smooshed_percentage}%'
+    if not verbose:
+        return metrics
 
-  return word_scores
+    most_common_words = sorted(frequencies.items(), key=lambda item: item[1])[-5:][::-1]
+    metrics += '\nMost common words:\n'
+    metrics += f' * {most_common_words[0][0]} ({most_common_words[0][1]} time{"" if most_common_words[0][1] == 1 else "s"})\n'
+    metrics += f' * {most_common_words[1][0]} ({most_common_words[1][1]} time{"" if most_common_words[0][1] == 1 else "s"})\n'
+    metrics += f' * {most_common_words[2][0]} ({most_common_words[2][1]} time{"" if most_common_words[0][1] == 1 else "s"})\n'
+    metrics += f' * {most_common_words[3][0]} ({most_common_words[3][1]} time{"" if most_common_words[0][1] == 1 else "s"})\n'
+    metrics += f' * {most_common_words[4][0]} ({most_common_words[4][1]} time{"" if most_common_words[0][1] == 1 else "s"})'
+    return metrics
 
-def assign_sentence_scores(sentences, word_scores):
-  score = 0
-  scores = {}
-  for index, sentence in enumerate(sentences):
-    words = sentence.split()
-    cleaned_words = clean_text(words)
-    for word in cleaned_words:
-      if not word == '"':
-        score += word_scores[word]
-    scores[index] = score
-    score = 0
+# print the final results
+def print_results(summary, metrics):
+    print(summary)
+    if not metrics == '':
+        print('')
+        print(metrics)
 
-  return scores
-      
-def parse():
-  parser = argparse.ArgumentParser(description='\tsmoosh \n\t/smooSH/ (verb) to squash, crush, or flatten\n\n\tSummarizes any text article, either as a .txt file or on a webpage specified by a url', formatter_class=RawTextHelpFormatter)
-
-  parser.add_argument('-n', '--num-sentences', type=int, help='the number of sentences that will be used to describe the text (default is 7)', required=False)
-  parser.add_argument('-f', '--file', help='if included, output will be written to \'output.txt\'', action='store_true')
-  parser.add_argument('-o', '--omit-metrics', help='if included, metric summary will be ommitted', action='store_true')
-  parser.add_argument('-v', '--verbose', help='if included, metric summary will be verbose', action='store_true')
-  parser.add_argument('-i', '--input', help='if included, input will be as a .txt file rather than a URL', action='store_true')
-  parser.add_argument('article', type=str, help='the URL of the target article (if -i is included, the name of the .txt file)')
-
-  args = parser.parse_args()
-  if args.num_sentences:
-    if args.num_sentences < 5:
-      print('WARNING: defaulting to minimum number of sentences, which is 5...')
-      num_sentences = 5
-    elif args.num_sentences > 10:
-      print('WARNING: defaulting to maximum number of sentences, which is 10...')
-      num_sentences = 10
-    else:
-      num_sentences = args.num_sentences
-  else:
-    num_sentences = 7
-
-  if args.file:
-    write_to_file = True
-  else:
-    write_to_file = False
-
-  if args.omit_metrics:
-    omit_metrics = True
-  else:
-    omit_metrics = False
-
-  if args.verbose:
-    verbose = True
-  else:
-    verbose = False
-
-  if args.input:
-    use_text_file = True
-  else:
-    use_text_file = False
-
-  if args.article:
-    article = args.article
-  else:
-    print('ERROR: no filename provided\nUse smoosh.py -h for help')
-    sys.exit(0)
-
-  return (num_sentences, write_to_file, omit_metrics, verbose, use_text_file, article)
+# build the command line parser
+def build_parser():
+    parser = argparse.ArgumentParser(description='\tsmoosh \n\t/smooSH/ (verb) to squash, crush, or flatten\n\n\tSummarizes any text article', formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('source', type=str, help='the text source, which can either be a local file or a URL to a webpage')
+    parser.add_argument('-n', '--sentence-limit', type=int, default=7, required=False, help='the number of sentences that will be used to describe the text')
+    parser.add_argument('-o', '--omit-metrics', action='store_true', required=False, help='omit metric summary')
+    parser.add_argument('-v', '--verbose', action='store_true', required=False, help='print verbose metric summary')
+    return parser
 
 def main():
-  # grab + parse cmd line arguments
-  (num_of_sentences, write_to_file, omit_metrics, verbose, use_text_file, filename) = parse()
-
-  # read from file and score sentences
-  (filesize, sentences, word_list) = extract_words(filename, use_text_file)
-  if num_of_sentences > len(sentences):
-    print('WARNING: article is less than %d sentences long, returning original article' % num_of_sentences)
-    num_of_sentences = len(sentences)
-  word_scores = assign_word_scores(word_list)
-  sentence_scores = assign_sentence_scores(sentences, word_scores)
-
-  # sort top sentences
-  final_scores = sorted(sentence_scores.items(), key=sort_by_last)[::-1]
-  top_sentence_ids = []
-  for index in range(num_of_sentences):
-    top_sentence_ids.append(final_scores[index][0])
-  top_sentence_ids.sort()
-
-
-  # build new smoosh
-  smoosh = ''
-  for index in range(num_of_sentences):
-    smoosh += sentences[top_sentence_ids[index]]
-        
-  smooshsize = len(smoosh)
-  smoosh_percentage_ = (1.0 - (float(smooshsize) / float(filesize))) * 100
-  smoosh_percentage = '%.2f' % smoosh_percentage_
-
-  summary =  """
--_-_-_-_-_-_ METRICS _-_-_-_-_-_-
-Original length: {0} characters
-Smooshed length: {1} characters
-
-Original smooshed by {2}%
-""".format(filesize, smooshsize, smoosh_percentage)
-
-  if verbose:
-
-    mcw = []
-    sorted_words = sorted(word_scores.items(), key=sort_by_last)[::-1]
-    for index in range(7):
-      mcw.append(sorted_words[index])
-
-    summary += """
-Most common words:
-  1. {0} ({1} times)
-  2. {2} ({3} times)
-  3. {4} ({5} times)
-  4. {6} ({7} times)
-  5. {8} ({9} times)
-  6. {10} ({11} times)
-  7. {12} ({13} times)
-
-Most important sentences:
-  1. Sentence #{14}
-  2. Sentence #{15}
-  3. Sentence #{16}
-  4. Sentence #{17}
-  5. Sentence #{18}
-""".format(mcw[0][0], mcw[0][1], mcw[1][0], mcw[1][1], mcw[2][0], mcw[2][1], mcw[3][0], mcw[3][1], mcw[4][0], mcw[4][1], mcw[5][0], mcw[5][1], mcw[6][0], mcw[6][1], top_sentence_ids[0]+1, top_sentence_ids[1]+1, top_sentence_ids[2]+1, top_sentence_ids[3]+1, top_sentence_ids[4]+1)
-
-  if write_to_file:
-    f = open('output.txt', 'w')
-    f.write(smoosh)
-    f.write('\n')
-    if not omit_metrics: f.write(summary)
-    f.close()
-  else:
-    print(smoosh)
-    if not omit_metrics: print(summary)
+    parser = build_parser()
+    args = parser.parse_args()
+    text = get_text(args.source)
+    sentences = get_sentences(text)
+    frequencies = calculate_word_frequency(sentences)
+    scores = calculate_sentence_scores(sentences, frequencies)
+    summary = build_summary(scores, args.sentence_limit)
+    metrics = build_metrics(text, summary, frequencies, args.omit_metrics, args.verbose)
+    print_results(summary, metrics)
 
 if __name__ == '__main__':
-  main()
-
+    main()
