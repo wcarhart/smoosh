@@ -185,6 +185,11 @@ def build_metrics(text, summary, frequencies, omit, verbose):
         return metrics
 
     most_common_words = sorted(frequencies.items(), key=lambda item: item[1])[-5:][::-1]
+    most_common_words = [
+        word if not word[0] == 'i' else ('I', word[1])
+        for word
+        in most_common_words
+    ]
     metrics += '\nMost common words:\n'
     metrics += f' * {most_common_words[0][0]} ({most_common_words[0][1]} time{"" if most_common_words[0][1] == 1 else "s"})\n'
     metrics += f' * {most_common_words[1][0]} ({most_common_words[1][1]} time{"" if most_common_words[0][1] == 1 else "s"})\n'
