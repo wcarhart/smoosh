@@ -52,6 +52,8 @@ optional arguments:
                         timeout (in seconds) to use when fetching data from a URL
 ```
 
+**[COMING SOON]** Please visit the [documentation site](https://willcarhart.dev/docs/smoosh) for full documentation.
+
 ## Examples
 
 You can run smoosh on a webpage:
