@@ -58,7 +58,7 @@ You can run smoosh on a webpage:
 ```
 smoosh 'https://www.cnn.com/2020/10/27/investing/amd-xilinx-purchase/index.html'
 ```
-Or on a local file (see the `articles/` folder for a few test files):
+Or on a local file (see the [`articles/`](https://github.com/wcarhart/smoosh/tree/master/articles) folder for a few test files):
 ```
 smoosh articles/spacex.txt
 ```
