@@ -1,7 +1,11 @@
-# smoosh 
+<p align="center"><img alt="smoosh logo" src="logo.png" /></p>
+
+<h1 align="center">smoosh</h1>
+<h5 align="center">a simple tool for summarizing text</h5>
+
 ### /smo͞oSH/ (verb) to squash, crush, or flatten
 
-This is a short program that summarizes (smooshes) text, either locally or from the web. For example, smoosh can take any New York Times, CNN, or Fox News article and _smoosh_ it (reduce its length) by ~70-80% on average. This means that most news articles can be read in just a few sentences!
+Smoosh is a simple tool that summarizes (smooshes) text, either locally or from the web. For example, smoosh can take any New York Times, CNN, or Fox News article and _smoosh_ it (reduce its length) by ~70-80% on average. This means that most news articles can be read in just a few sentences!
 
 ## Installation
 
@@ -57,11 +61,11 @@ optional arguments:
 ## Examples
 
 You can run smoosh on a webpage:
-```
+```bash
 smoosh 'https://www.cnn.com/2020/10/27/investing/amd-xilinx-purchase/index.html'
 ```
 Or on a local file (see the [`articles/`](https://github.com/wcarhart/smoosh/tree/master/articles) folder for a few test files):
-```
+```bash
 smoosh articles/spacex.txt
 ```
 Output shows the summary and some metrics, which you can omit with the `--omit-metrics` flag or make verbose with the `--verbose` flag.
