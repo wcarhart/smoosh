@@ -274,7 +274,7 @@ def build_parser():
     parser = argparse.ArgumentParser(description='Summarize any text article', formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('source', type=str, help='the text source, which can either be the path to a local file or a URL to a webpage')
     parser.add_argument('-n', '--sentence-limit', type=int, default=7, required=False, help='the number of sentences that will be used to describe the text')
-    parser.add_argument('-o', '--omit-metrics', action='store_true', required=False, help='omit metric summary')
+    parser.add_argument('-q', '--quiet', action='store_true', required=False, help='omit metric summary')
     parser.add_argument('-v', '--verbose', action='store_true', required=False, help='print verbose metric summary')
     parser.add_argument('-t', '--timeout', type=int, default=10, required=False, help='timeout (in seconds) to use when fetching data from a URL')
     return parser
@@ -298,7 +298,7 @@ def main():
         frequencies = calculate_word_frequency(sentences)
         scores = calculate_sentence_scores(sentences, frequencies)
         summary = build_summary(scores, args.sentence_limit)
-        metrics = build_metrics(text, summary, frequencies, args.omit_metrics, args.verbose)
+        metrics = build_metrics(text, summary, frequencies, args.quiet, args.verbose)
         print_results(summary, metrics)
     except:
         if not PROCESSED_TEXT:

@@ -39,7 +39,7 @@ smoosh --help
 Use `smoosh --help` to view the help menu.
 
 ```
-usage: smoosh [-h] [-n SENTENCE_LIMIT] [-o] [-v] [-t TIMEOUT] source
+usage: smoosh [-h] [-n SENTENCE_LIMIT] [-q] [-v] [-t TIMEOUT] source
 
 Summarize any text article
 
@@ -50,7 +50,7 @@ optional arguments:
   -h, --help            show this help message and exit
   -n SENTENCE_LIMIT, --sentence-limit SENTENCE_LIMIT
                         the number of sentences that will be used to describe the text
-  -o, --omit-metrics    omit metric summary
+  -q, --quiet           omit metric summary
   -v, --verbose         print verbose metric summary
   -t TIMEOUT, --timeout TIMEOUT
                         timeout (in seconds) to use when fetching data from a URL
@@ -68,7 +68,7 @@ Or on a local file (see the [`articles/`](https://github.com/wcarhart/smoosh/tre
 ```bash
 smoosh articles/spacex.txt
 ```
-Output shows the summary and some metrics, which you can omit with the `--omit-metrics` flag or make verbose with the `--verbose` flag.
+Output shows the summary and some metrics, which you can silence with the `--quiet` flag or make verbose with the `--verbose` flag.
 ```
 It will be an operational monument to Elon Musk's vision: a towering SpaceX launch control center,
 a hangar and a rocket garden rising in the heart of Kennedy Space Center. According to plans
