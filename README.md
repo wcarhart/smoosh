@@ -1,7 +1,7 @@
 # smoosh 
 ### /smo͞oSH/ (verb) to squash, crush, or flatten
 
-This is a short program that summarizes (smooshes) text files, either locally or from the web. For example, this simple script can take any New York Times, CNN, or Fox News article and _smoosh_ it down by ~70-80% on average. This means that most news articles can be read in just a few sentences!
+This is a short program that summarizes (smooshes) text, either locally or from the web. For example, smoosh can take any New York Times, CNN, or Fox News article and _smoosh_ it (reduce its length) by ~70-80% on average. This means that most news articles can be read in just a few sentences!
 
 ## Installation
 
