@@ -27,11 +27,11 @@ python3 -m virtualenv -p `which python3` venv
 source venv/bin/activate
 python --version # should be 3.x
 
-# install dependencies
-python -m pip install -r requirements.txt
+# install smoosh
+python -m pip install -e .
 
 # verify installation
-python smoosh.py --help
+smoosh --help
 ```
 
 ## Usage
