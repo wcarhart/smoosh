@@ -5,35 +5,37 @@ This is a short program that summarizes (smooshes) text files, either locally or
 
 ## Installation
 
-Clone this repository.
+Install with [Homebrew](https://brew.sh):
 ```bash
-git clone https://github.com/wcarhart/smoosh.git
+brew install wcarhart/tools/smoosh
+smoosh --help
 ```
-Create new virtual environment.
+
+Or, install manually:
 ```bash
+# clone repo
+git clone https://github.com/wcarhart/smoosh.git
 cd smoosh
+
+# set up virtual environment
 # if you don't have virtualenv, you can install it with `python3 -m pip install virtualenv`
 python3 -m virtualenv -p `which python3` venv
 source venv/bin/activate
 python --version # should be 3.x
-```
-Install dependencies.
-```bash
+
+# install dependencies
 python -m pip install -r requirements.txt
-```
-Run smoosh.
-```bash
+
+# verify installation
 python smoosh.py --help
 ```
 
-_Installation via Homebrew is coming soon._
-
 ## Usage
 
-Use `python smoosh.py --help` to view the help menu.
+Use `smoosh --help` to view the help menu.
 
 ```
-usage: smoosh.py [-h] [-n SENTENCE_LIMIT] [-o] [-v] [-t TIMEOUT] source
+usage: smoosh [-h] [-n SENTENCE_LIMIT] [-o] [-v] [-t TIMEOUT] source
 
 Summarize any text article
 
@@ -54,11 +56,11 @@ optional arguments:
 
 You can run smoosh on a webpage:
 ```
-python smoosh.py 'https://www.cnn.com/2020/10/27/investing/amd-xilinx-purchase/index.html'
+smoosh 'https://www.cnn.com/2020/10/27/investing/amd-xilinx-purchase/index.html'
 ```
 Or on a local file (see the `articles/` folder for a few test files):
 ```
-python smoosh.py articles/spacex.txt
+smoosh articles/spacex.txt
 ```
 Output shows the summary and some metrics, which you can omit with the `--omit-metrics` flag or make verbose with the `--verbose` flag.
 ```
