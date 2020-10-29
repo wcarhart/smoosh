@@ -84,9 +84,13 @@ class TimeoutException(Exception):
 def get_text(source):
     text = None
     status_code = None
+    global PROCESSED_TEXT
 
     # read text from file or URL
     if os.path.isfile(source):
+        # update timeout settings
+        PROCESSED_TEXT = True
+        status_code = 200
         try:
             with open(source) as f:
                 text = f.read()
@@ -114,7 +118,6 @@ def get_text(source):
             text = soup.get_text()
 
             # update timeout settings
-            global PROCESSED_TEXT
             PROCESSED_TEXT = True
         except TimeoutException:
             sys.exit(1)
@@ -292,10 +295,6 @@ def main():
     try:
         text = get_text(args.source)
         sentences = get_sentences(text)
-        # for s in sentences:
-        #     print(s)
-        #     print('')
-        # sys.exit()
         frequencies = calculate_word_frequency(sentences)
         scores = calculate_sentence_scores(sentences, frequencies)
         summary = build_summary(scores, args.sentence_limit)
